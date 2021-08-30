@@ -1,0 +1,20 @@
+---
+- hosts: debian
+  tasks:
+          - name: print servername
+            command: hostname
+            register: servername
+            with_items: "{{ ansible_hostname }}"
+
+            #          - debug: var=servername
+          - name: debugging
+            debug:
+                  msg: "{{ item.stdout }}"
+            with_items: "{{ servername.results }}"
+
+          - name: copy content
+            local_action:
+                    module: copy
+                    content: "{{ item.stdout  }}"
+                    dest: output_loop.html
+            with_items: "{{ servername.results }}"

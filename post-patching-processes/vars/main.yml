@@ -1,0 +1,9 @@
+---
+# vars file
+app_ip1 :
+        dmgr : ip-172-31-22-4
+        nodeagent1 : ip-172-31-22-4
+        nodeagent2 : ip-172-31-22-4
+app_ip2 :
+        ip-172-31-22-4
+        ip-172-31-22-4

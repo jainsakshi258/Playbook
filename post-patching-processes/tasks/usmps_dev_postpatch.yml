@@ -1,0 +1,6 @@
+---
+# tasks file for checking uptime of servers
+- name: Check if the servers are up
+  wait_for_connection:
+          sleep: 1
+          timeout: 10 

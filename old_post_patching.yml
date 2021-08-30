@@ -1,0 +1,28 @@
+---
+#Author: Angel Khalkho
+#Approver:
+#Application: USM/PASS
+#Purpose: To run post patch checks on USM/PASS on dev environment
+#Created on: 26th August 2021
+#Last modified by: Angel Khalkho
+#Last modified on: 26th August 2021
+#JIRA story: XCXC-289
+#Confluence link: 
+ 
+#post patching processes for usmpas
+- name : Running post patching processes
+  become : yes
+  become_method: sudo 
+  gather_facts: yes
+  hosts: debian
+  tasks:
+  - name: Run main task
+    block:
+            - name: Running role in block
+              include_role:
+                      name: post-patching-processess
+    rescue:
+            - name: rescue called
+              debug:
+                      msg: "Rescue is called"
+          

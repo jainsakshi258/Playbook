@@ -1,0 +1,78 @@
+---
+- hosts: debian
+  #  become: yes
+  #  become_method: sudo
+  vars:
+          - appservers: "{{ ansible_hostname }}"
+          - appserver_uptime: "<15"
+          - appserver_DMGR: "Not Started"
+          - appserver_NodeAgent: "Not Started"
+          - appserver_Server: "Not Started"
+   
+  tasks:
+          - name: Check Uptime of servers in Debian group
+            command: awk '{print $0/60;}' /proc/uptime
+            register: uptime_value
+            until: uptime_value.stdout | int >= 15
+            retries: 15
+            delay: 60
+          - set_fact:
+                  appserver_uptime: "{{ uptime_value.stdout }}"
+
+          - block:
+
+                  - name: print servers
+                    debug:
+                            msg: "{{ appservers }}"
+                  - name: Start DMGR
+                    shell: bash ./startManager.sh
+                    args:
+                            chdir: "/home/admin/testfolder/profiles/DEV01Dmgr01/bin"
+                    register: startDEV01Dmgr
+                    
+                  - name: Start Node Agent
+                    shell: bash ./startNode.sh
+                    args:
+                            chdir: "/home/admin/testfolder/profiles/DEV01Dmgr01/bin"
+                    when: not "hello" in startDEV01Dmgr.stdout
+                    register: startDEV01Node
+
+                  - name: Start Application Server
+                    shell: bash ./startServer.sh dev01server
+                    args:
+                            chdir: "/home/admin/testfolder/profiles/DEV01Dmgr01/bin"
+                    when: not "hello" in startDEV01Node
+                    register: startDEV01Server
+
+                    #                  - name: Wait until regex pattern matches in the file /tmp/foo and print the matched group
+                    #                    wait_for:
+                            #                            path: /tmp/foo
+                            #                            search_regex: completed (?P<task>\w+)
+                            #                            register: waitfor
+                            #                  - debug:
+#                            msg: Completed {{ waitfor['match_groupdict']['task'] }}
+
+                  - name: get DEV01Dmgr status
+                    debug:
+                            msg: "{{startDEV01Dmgr.stdout}}"
+
+
+            rescue:
+                    - debug:
+                            msg: "There was an error in execution"
+            always:
+                    - name: print servers in group
+                      debug:
+                              msg: "{{ appservers }}"
+                    - name: copy content
+                      local_action:
+                              module: copy
+                              content: "<html><body 'style=font-family:Calibri'><h4>USM/PASS POST PATCH CHECKS</h4><br>
+                              <table border=1><tr><th>S.No.</th><th>Servers</th><th>Post check</th><th>Status</th></tr>
+                              <tr><td>1</td><td>{{ appservers }}</td><td>Server Uptime</td><td>{{ appserver_uptime }} minutes</td></tr>
+                              </table></html>"
+                              #                              content: "<html>{{ uptime_value.stdout | int }}<br>
+                              #                              start DMGR : {{ startDEV01Dmgr.stdout }}<br>
+                              #                              start Node : {{ startDEV01Node.stdout }}<br>
+                              #                              start Server : {{ startDEV01Server.stdout }}</html>"
+                              dest: output_file.html

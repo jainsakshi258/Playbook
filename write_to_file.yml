@@ -1,0 +1,126 @@
+---
+#Author: Angel Khalkho
+#Approver: <app SME>
+#Application: USM/PASS
+#Purpose: To perform post patching checks for USM/PASS
+#Created on: 23rd Aug 2021
+#Last modified by: Angel Khalkho
+#Last modified date: 30th Aug 2021
+#JIRA Story: XCXC-
+
+##Start DMGR, Node Agents and Servers in debian group
+- hosts: debian
+  vars:
+          output_file: 'append_file.html'
+          successful: '<td style=background-color:#73f540>Successful</td>'
+          failure: '<td style=background-color:red>Failed</td>' 
+          #startDEV01Dmgr_status: 'Failed'
+  tasks:
+          - name: Delete Output File if it exists
+            file:
+                    path: "{{ output_file  }}"
+                    state: absent
+            delegate_to: localhost
+
+          - name: Create Output File
+            local_action:
+                    module: copy
+                    content: "<html><body style=font-family:Calibri><table border=1><tr style='background-color:#40b2f5'><th>Post Check</th><th>Value</th></tr>"
+                    dest: "{{ output_file }}"
+
+          
+          - name: Check Uptime of servers in Debian group
+            command: awk '{print $0/60;}' /proc/uptime
+            register: uptime_value
+            until: uptime_value.stdout | int >= 15
+            retries: 15
+            delay: 60
+            #- wait_for:
+            #timeout: 2
+
+          - block:
+                  - name: Start DMGR on DEV01
+                    shell: bash ./startManager.sh
+                    args:
+                            chdir: "/home/admin/testfolder/profiles/DEV01Dmgr01/bin"
+                    register: startDEV01Dmgr
+
+                  - set_fact:
+                          startDEV01Dmgr_status:  "{{ successful }}"
+                    when: '"process ID" in startDEV01Dmgr.stdout'
+
+            rescue:
+                  - set_fact:
+                            startDEV01Dmgr_status: "{{ failure }}"
+          - block:
+                  - name: Start Node Agent on DEV01
+                    shell: bash ./startNode.sh
+                    args:
+                            chdir: "/home/admin/testfolder/profiles/DEV01Dmgr01/bin"
+                    when: '"process ID" in startDEV01Dmgr.stdout'
+                    register: startDEV01Node
+                  - set_fact:
+                          startDEV01Node_status: "{{ successful }}"
+                    when: '"process ID" in startDEV01Node.stdout'
+            rescue:
+                    - set_fact:
+                            startDEV01Node_status: "{{ failure }}"
+          - block:
+                  - name: Start Server on DEV01
+                    shell: bash ./startServer.sh
+                    args:
+                            chdir: "/home/admin/testfolder/profiles/DEVDmgr01/bin"
+                    when: '"process ID" in startDEV01Node.stdout'
+                    register: startDEV01Server
+                  - set_fact:
+                          startDEV01Server_status: "{{ successful }}"
+                          when: '"NO DEPLOYMENT UNITS REMIAN TO BE IMPORTED\" in startDEV01Server.stdout'
+            rescue:
+                    - set_fact:
+                            startDEV01Server_status: "{{ failure }}"
+
+
+            always:
+                  - name: Append values in Output File
+                    lineinfile:
+                            dest: "{{ output_file }}"
+                            line: "<tr><td colspan=3 style='text-align:center'>{{ ansible_hostname  }}</td></tr>
+                            <tr><td>Uptime</td><td>{{ uptime_value.stdout }}</td></tr>
+                            <tr><td>Start DMGR</td>{{ startDEV01Dmgr_status }}</tr>
+                            <tr><td>Start Node Agent</td>{{ startDEV01Node_status }}</tr>
+                            <tr><td>Start Server</td>{{ startDEV01Server_status }}</tr>"
+
+                            insertafter: EOF
+                    delegate_to: localhost
+
+                  - name: Close the file
+                    lineinfile:
+                            dest: "{{ output_file }}"
+                            line: "</table></body></html>"
+                            insertafter: EOF
+                    delegate_to: localhost
+
+##Send Email                                     
+- hosts: localhost
+  vars:
+          output_file: "/home/ansible/playbooks/usmpas/append_file.html"
+  tasks:
+          - name: Read the output file
+            shell: cat "{{ output_file }}"
+            register: email_content
+            delegate_to: localhost
+
+          - name: Sending an e-mail using Gmail SMTP servers
+            mail:
+                    host: smtp.gmail.com
+                    port: 587
+                    secure: starttls
+                    charset: utf-8
+                    username: angel003angel@gmail.com
+                    password: wdghdxoxzvrczbtz
+                    to: angel003angel@gmail.com
+                    subject: Ansible Report
+                    body: " Ansible has initiated post checks. PFA the report. <br>{{ email_content.stdout }}"
+                    #attach: /home/ansible/playbooks/test_playbook/output_file.html
+            delegate_to: localhost
+

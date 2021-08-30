@@ -1,0 +1,9 @@
+---
+# tasks file for checking uptime of servers
+- name: run test
+  shell: echo "hello"
+  register: output
+
+- name: return output
+  debug:
+          msg: "{{ output.stdout }}"

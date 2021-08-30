@@ -1,0 +1,4 @@
+---
+#main task to call all tasks
+- name: USMPASS Post Patch checks
+  import_tasks: usmps_dev_postpatch.yml

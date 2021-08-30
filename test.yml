@@ -1,0 +1,31 @@
+---
+- hosts: debian
+  tasks:
+          - block:
+                  - name: Check Uptime of servers in debian group
+                    shell:  awk '{print $1}' /proc/uptime
+                    register: uptime_value
+                    until: uptime_value.stdout | int /60 >=15
+                    retries: 50
+                    delay: 5
+
+                  - block:
+                          - name: Get username
+                            shell: whomi
+                            register: username
+                    
+                          - name: Get the uptimeand username values
+                            debug:
+                                    msg:
+                                            - "uptime: {{uptime_value.stdout|int / 60}}"
+                                            - "username: {{username.stdout}}"
+                    rescue:
+                            debug:
+                                    msg: "there was an error in finding the username"
+
+   
+
+            rescue:
+                    - name: Rescue block
+                      debug:
+                              msg: "The servers took too long to respond."
